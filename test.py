@@ -1,4 +1,8 @@
 from openpyxl import Workbook, load_workbook
+from openpyxl.chart import LineChart, Reference
+import pprint
+import json
+from datetime import date
 
 class ProcessExcel:
 
@@ -8,10 +12,8 @@ class ProcessExcel:
         SHIHYO = 2
         KAMOKU = 3
 
-        print("Process starting....")
-
         wb = load_workbook('./for_test.xlsx')
-        ws = wb.active
+        ws = wb["Sheet1"]
 
         _temp_shihyo = None
         
@@ -20,6 +22,8 @@ class ProcessExcel:
         category_temp = None
 
         type_list = []
+        _years_list = []
+        _kizyun_list = []
         for row in range(1, ws.max_row):
             _value = ws.cell(row = row, column = 1).value
 
@@ -57,12 +61,18 @@ class ProcessExcel:
                 
                     if _kamoku_for_store == '科目':
                         shihyo_temp = _shigyo
-                        sub_dict['years'] = data
+                        _years_list = data
+                        # sub_dict['years'] = data
+                        continue
                     else:
+
                         sub_dict['type'] = _type
                         sub_dict['category'] = category_temp
                         sub_dict['shihyo'] = shihyo_temp
-                        sub_dict[_kamoku_for_store] = data
+                        sub_dict['kamoku'] = _kamoku_for_store
+                        sub_dict['data'] = data
+                        sub_dict['years'] = _years_list
+
                         shihyo_temp = _shigyo
                     
                     data_list.append(sub_dict)
@@ -82,7 +92,9 @@ class ProcessExcel:
                     _last_komoku_dict['type'] = _type
                     _last_komoku_dict['category'] = category_temp
                     _last_komoku_dict['shihyo'] = shihyo_temp
-                    _last_komoku_dict[_last_kamoku] = last_komoku_list   
+                    _last_komoku_dict['kamoku'] = _last_kamoku
+                    _last_komoku_dict['data'] = last_komoku_list   
+                    _last_komoku_dict['years'] = _years_list
                     shihyo_temp = _shigyo
 
                     data_list.append(_last_komoku_dict)
@@ -100,8 +112,57 @@ class ProcessExcel:
                     _kizyun_dict['kizyun'] = _kizyun_list
                     data_list.append(_kizyun_dict)
 
-        print("data_list: {}".format(data_list))
-    
+        # draw chart
+        _rows = [
+            ['Date', '指標', '規準', 'value']
+        ]
+
+        _years_list = []
+        _kizyun_list = []
+        _data_data_list = []
+
+        for _dict_data in data_list:
+            _keys = list(_dict_data.keys()) 
+           
+            if 'data' in _keys and 'years' in _keys:
+                for _index in range(0, len(_dict_data.get('years'))):
+                    _tmp = []
+                    _tmp.append(_dict_data.get('years')[_index])
+                    _tmp.append(_dict_data.get('data')[_index])
+                    _tmp.append(_dict_data.get('type'))
+                    _tmp.append(_dict_data.get('category'))
+                    _tmp.append(_dict_data.get('shihyo'))
+                    _tmp.append(_dict_data.get('kamoku'))
+            
+                    if len(_tmp) > 0:
+                        _data_data_list.append(_tmp)
+
+        print("list {}".format(_data_data_list))
+
+        rows = [
+            ['Date', 'Batch 1'],
+            [date(2015,9, 1), 40],
+            [date(2015,9, 2), 40],
+            [date(2015,9, 3)],
+            [date(2015,9, 4), 30],
+            [date(2015,9, 5), 25],
+            [date(2015,9, 6), 20],
+        ]
+
+        for row in rows:
+            ws.append(row)
+
+        c1 = LineChart()
+        c1.title = "test"
+        c1.style = 13
+        c1.y_axis.title = 'Y axis'
+        c1.x_axis.title = 'X axis'
+
+        data = Reference(ws, min_col=2, min_row=1, max_col=2, max_row=7)
+        c1.add_data(data, titles_from_data=True)
+
+        ws.add_chart(c1, "A10")
+        wb.save("line.xlsx")
 
     def get_kizyun(self, row):
         """
