@@ -1,8 +1,12 @@
+from datetime import date
+
 from openpyxl import Workbook, load_workbook
 from openpyxl.chart import LineChart, Reference
+from openpyxl.chart.marker import DataPoint
+from openpyxl.drawing.fill import PatternFillProperties, ColorChoice
+
 import pprint
 import json
-from datetime import date
 
 class ProcessExcel:
 
@@ -62,7 +66,6 @@ class ProcessExcel:
                     if _kamoku_for_store == '科目':
                         shihyo_temp = _shigyo
                         _years_list = data
-                        # sub_dict['years'] = data
                         continue
                     else:
 
@@ -104,41 +107,102 @@ class ProcessExcel:
                 _kizyun_dict = {}
                 for _kizyun_col in range(1, 6):
                     _kizyun_data = ws.cell(row = row, column = KAMOKU + _kizyun_col).value
-
                     if _kizyun_data is not None:
                         _kizyun_list.append(_kizyun_data)
 
                 if len(_kizyun_list) > 0:
-                    _kizyun_dict['kizyun'] = _kizyun_list
-                    data_list.append(_kizyun_dict)
+                    for _get_data in data_list:
+                        if 'kizyun' not in _get_data.keys():
+                            _get_data['kizyun'] = _kizyun_list
 
         # draw chart
-        _rows = [
-            ['Date', '指標', '規準', 'value']
-        ]
-
         _years_list = []
         _kizyun_list = []
-        _data_data_list = []
 
-        for _dict_data in data_list:
+        _data_data_list_result = []
+
+        pprint.pprint(data_list)
+        
+        for _index_one, _dict_data in enumerate(data_list):
+            _data_data_list = []
             _keys = list(_dict_data.keys()) 
            
             if 'data' in _keys and 'years' in _keys:
-                for _index in range(0, len(_dict_data.get('years'))):
+                pre_kizyun = None
+                _diff_index = None
+                for _index_two in range(0, len(_dict_data.get('years'))):
                     _tmp = []
-                    _tmp.append(_dict_data.get('years')[_index])
-                    _tmp.append(_dict_data.get('data')[_index])
+                    _tmp.append(_dict_data.get('years')[_index_two])
+                    
                     _tmp.append(_dict_data.get('type'))
                     _tmp.append(_dict_data.get('category'))
                     _tmp.append(_dict_data.get('shihyo'))
                     _tmp.append(_dict_data.get('kamoku'))
-            
+                    _tmp.append(_dict_data.get('kizyun')[_index_two])
+
+                    _current_kizyun = _dict_data.get('kizyun')[_index_two]
+                    _current_data = _dict_data.get('data')[_index_two]
+
+                    if pre_kizyun != None and pre_kizyun != _current_kizyun or _current_data == '-':
+                        # TODO: set datapoint
+                        _tmp.append(_current_data)
+                        _diff_index = _index_two
+
+                    else:
+                        _tmp.append(_current_data)
+
+                    pre_kizyun = _current_kizyun
+
                     if len(_tmp) > 0:
                         _data_data_list.append(_tmp)
 
-        print("list {}".format(_data_data_list))
+                # Draw data
+                _data_data_list_result.append(_data_data_list)
 
+        _chart_index = 0
+        for index, data in enumerate(_data_data_list_result):
+
+            ws = wb["Sheet2"]
+
+            c1 = LineChart()
+            c1.style = 13
+
+            for _data in data:
+                c1.title = _data[2] + "・" + _data[4]
+                c1.x_axis.title = '年度'
+                c1.y_axis.title = _data[3]
+                c1.legend = None
+                ws.append(_data)
+            
+            size_row = 1 + index * len(data)
+            size_col = len(data)
+
+            excel_data = Reference(
+                ws,
+                min_col = 7, 
+                max_col = 7, 
+                min_row = 1 + index * len(data), 
+                max_row = (1 + index * len(data)) + len(data) - 1)
+
+            c1.add_data(excel_data, titles_from_data=False)
+
+            # style
+            s1 = c1.series[0]
+            s1.marker.graphicalProperties.solidFill = "FEFEFE"
+            s1.marker.graphicalProperties.line.solidFill = "FEFEFE"
+            s1.graphicalProperties.line.noFill = False
+
+            pt = DataPoint(idx=3)
+            pt.graphicalProperties.line.noFill = True
+            s1.dPt.append(pt)
+
+            ws.add_chart(c1, "I%s"%_chart_index + str(len(data)))
+            wb.save("line2.xlsx")
+
+            _chart_index += 2   
+            # print('----------------------------')
+
+    def output_chart(self, ws, data, row):
         rows = [
             ['Date', 'Batch 1'],
             [date(2015,9, 1), 40],
@@ -163,6 +227,7 @@ class ProcessExcel:
 
         ws.add_chart(c1, "A10")
         wb.save("line.xlsx")
+        pass
 
     def get_kizyun(self, row):
         """
